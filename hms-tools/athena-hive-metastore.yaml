@@ -1,0 +1,81 @@
+Transform: 'AWS::Serverless-2016-10-31'
+
+Metadata:
+  AWS::ServerlessRepo::Application:
+    Name: AthenaHiveMetastoreFunction
+    Description: An Athena Lambda function to interact with Hive Metastore
+    Author: 'default author'
+    SpdxLicenseId: Apache-2.0
+    LicenseUrl: LICENSE.txt
+    ReadmeUrl: README.md
+    Labels: ['athena-hive-metastore']
+    HomePageUrl: https://github.com/awslabs/aws-athena-hive-metastore
+    SemanticVersion: 1.0.0
+    SourceCodeUrl: https://github.com/awslabs/aws-athena-hive-metastore
+
+# Parameters are CloudFormation features to pass input
+# to your template when you create a stack
+Parameters:
+  LambdaFuncName:
+    Description: "The name you will give to this catalog in Athena will be used as the function name prefix."
+    Type: String
+  SpillLocation:
+    Description: "The S3 location where this function can spill metadata responses."
+    Type: String
+    Default: "athena-hms-spill"
+  LambdaTimeout:
+    Description: "Maximum Lambda invocation runtime in seconds. (min 1 - 900 max)"
+    Default: 300
+    Type: Number
+  LambdaMemory:
+    Description: "Lambda memory in MB (min 128 - 3008 max)."
+    Default: 1024
+    Type: Number
+  HMSUris:
+    Description: "Hive metastore URIs"
+    Type: String
+  VPCSubnetIds:
+    Description: "Comma separated VPC subnet IDs where hive metastore is in."
+    Type: CommaDelimitedList
+  VPCSecurityGroupIds:
+    Description: "Comma separated VPC security groups IDs where hive metastore is in."
+    Type: CommaDelimitedList
+
+Resources:
+  HiveMetastoreFunction:
+    Type: 'AWS::Serverless::Function'
+    Properties:
+      Environment:
+        Variables:
+          HMS_URIS: !Ref HMSUris
+          SPILL_LOCATION: !Sub "s3://${SpillLocation}"
+      FunctionName: !Sub "${LambdaFuncName}"
+      Handler: "com.amazonaws.athena.hms.HiveMetaStoreLambdaFunc::handleRequest"
+      CodeUri: "../hms-lambda-func/target/hms-lambda-func-1.0-withdep.jar"
+      Description: "Allows Athena to call and execute queries with hive metastore."
+      Runtime: java8
+      Timeout: !Ref LambdaTimeout
+      MemorySize: !Ref LambdaMemory
+      Policies:
+        - Statement:
+            - Action:
+                - lambda:GetFunction
+                - lambda:InvokeFunction
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Effect: Allow
+              Resource: '*'
+            - Action:
+                - s3:GetObject
+                - s3:GetBucketLocation
+                - s3:ListBucket
+                - s3:PutObject
+              Effect: Allow
+              Resource: !Sub "arn:aws:s3:::${SpillLocation}/*"
+          Version: '2012-10-17'
+        # Gives access to create, delete, describe, and detach Elastic Network Interfaces to connect to customer's VPC.
+        - VPCAccessPolicy: {}
+      VpcConfig:
+        SecurityGroupIds: !Ref VPCSecurityGroupIds
+        SubnetIds: !Ref VPCSubnetIds
