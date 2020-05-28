@@ -29,19 +29,11 @@ import java.net.URISyntaxException;
 public class ThriftHiveMetaStoreClientFactory implements HiveMetaStoreClientFactory
 {
   private final HiveMetaStoreConf conf;
-  private final HiveMetaStoreClient client;
 
   public ThriftHiveMetaStoreClientFactory()
   {
     // load configuration from a property file and override with environment variables
     this.conf = HiveMetaStoreConf.loadAndOverrideWithEnvironmentVariables();
-    try {
-      // create the thrift Hive Metastore client
-      this.client = new ThriftHiveMetaStoreClient(conf.toHiveConf());
-    }
-    catch (TException | IOException | InterruptedException | LoginException | URISyntaxException e) {
-      throw new RuntimeException("Failed to create HiveMetaStoreClient", e);
-    }
   }
 
   @Override
@@ -50,10 +42,21 @@ public class ThriftHiveMetaStoreClientFactory implements HiveMetaStoreClientFact
     return conf;
   }
 
+  private ThriftHiveMetaStoreClient createClient()
+  {
+    try {
+      // create the thrift Hive Metastore client
+      return new ThriftHiveMetaStoreClient(conf.toHiveConf());
+    }
+    catch (TException | IOException | InterruptedException | LoginException | URISyntaxException e) {
+      throw new RuntimeException("Failed to create HiveMetaStoreClient", e);
+    }
+  }
+
   @Override
   public HiveMetaStoreClient getHiveMetaStoreClient()
   {
-    return client;
+    return createClient();
   }
 
   @Override
