@@ -16,7 +16,7 @@
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javac.target>1.8</javac.target>
-    <hive.version>2.3.0</hive.version>
+    <hive.version>2.3.4</hive.version>
     <hadoop.version>2.7.4</hadoop.version>
     <commons-cli.version>1.4</commons-cli.version>
   </properties>
@@ -146,16 +146,6 @@
         <groupId>commons-logging</groupId>
         <artifactId>commons-logging</artifactId>
         <version>1.2</version>
-      </dependency>
-      <dependency>
-        <groupId>log4j</groupId>
-        <artifactId>log4j</artifactId>
-        <version>1.2.17</version>
-      </dependency>
-      <dependency>
-        <groupId>org.apache.logging.log4j</groupId>
-        <artifactId>log4j-1.2-api</artifactId>
-        <version>2.6.2</version>
       </dependency>
       <dependency>
         <groupId>com.lmax</groupId>
