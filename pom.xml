@@ -17,7 +17,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javac.target>1.8</javac.target>
     <hive.version>2.3.4</hive.version>
-    <hadoop.version>2.7.4</hadoop.version>
+    <hadoop.version>2.10.1</hadoop.version>
     <commons-cli.version>1.4</commons-cli.version>
   </properties>
 
