@@ -311,6 +311,11 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
     return client.get_partitions(dbName, tableName, maxSize);
   }
 
+  public List<Partition> getPartitionsByFilter(String dbName, String tableName, String partitionFilter, short maxSize) throws TException
+  {
+    return client.get_partitions_by_filter(dbName, tableName, partitionFilter, maxSize);
+  }
+
   public DropPartitionsResult dropPartitions(String dbName, String tableName,
                                              List<String> partNames) throws TException
   {
