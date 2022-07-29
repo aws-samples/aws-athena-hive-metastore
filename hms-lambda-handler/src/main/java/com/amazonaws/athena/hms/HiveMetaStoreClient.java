@@ -80,6 +80,8 @@ public interface HiveMetaStoreClient
 
   List<Partition> getPartitions(String dbName, String tableName, short maxSize) throws TException;
 
+  List<Partition> getPartitionsByFilter(String dbName, String tableName, String partitionFilter, short maxSize) throws TException;
+
   DropPartitionsResult dropPartitions(String dbName, String tableName,
                                       List<String> partNames) throws TException;
 
