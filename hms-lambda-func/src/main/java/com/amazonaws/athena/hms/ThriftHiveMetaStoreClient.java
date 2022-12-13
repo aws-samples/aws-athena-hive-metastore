@@ -28,6 +28,8 @@ import org.apache.hadoop.hive.metastore.api.DropPartitionsRequest;
 import org.apache.hadoop.hive.metastore.api.DropPartitionsResult;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.PartitionsByExprRequest;
+import org.apache.hadoop.hive.metastore.api.PartitionsByExprResult;
 import org.apache.hadoop.hive.metastore.api.RequestPartsSpec;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
@@ -51,6 +53,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -248,9 +251,9 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
     return true;
   }
 
-  public boolean dropDatabase(String dbName) throws TException
+  public boolean dropDatabase(String dbName, boolean deleteData, boolean cascade) throws TException
   {
-    client.drop_database(dbName, true, true);
+    client.drop_database(dbName, deleteData, cascade);
     return true;
   }
 
@@ -262,7 +265,7 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
 
   public boolean dropTable(String dbName, String tableName) throws TException
   {
-    client.drop_table(dbName, tableName, true);
+    client.drop_table(dbName, tableName, false);
     return true;
   }
 
@@ -300,7 +303,7 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
                                List<String> arguments)
       throws TException
   {
-    return client.drop_partition(dbName, tableName, arguments, true);
+    return client.drop_partition(dbName, tableName, arguments, false);
   }
 
   public List<Partition> getPartitions(String dbName, String tableName, short maxSize) throws TException
@@ -338,6 +341,13 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
     return true;
   }
 
+  public boolean alterDatabase(String dbName, Database database)
+          throws TException
+  {
+    client.alter_database(dbName, database);
+    return true;
+  }
+
   public void alterPartition(String dbName, String tableName,
                              Partition partition) throws TException
   {
@@ -354,6 +364,26 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
                               List<String> partitionValues) throws TException
   {
     client.append_partition_with_environment_context(dbName, tableName, partitionValues, null);
+  }
+
+  public void renamePartition(final String dbName, final String tableName, final List<String> partVals, final Partition newPart) throws TException
+  {
+    client.rename_partition(dbName, tableName, partVals, newPart);
+  }
+
+  public boolean listPartitionsByExpr(String dbName, String tableName,
+                                      byte[] expr, String defaultPartitionName, short maxParts, List<Partition> partitions) throws TException
+  {
+    PartitionsByExprRequest req = buildPartitionsByExprRequest(dbName, tableName, expr, defaultPartitionName,
+            maxParts);
+
+    PartitionsByExprResult r = client.get_partitions_by_expr(req);
+    if (partitions == null) {
+      partitions = new ArrayList<>();
+    }
+
+    partitions.addAll(r.getPartitions());
+    return !r.isSetHasUnknownPartitions() || r.isHasUnknownPartitions();
   }
 
   private TTransport open(HiveConf conf, URI uri) throws
@@ -465,5 +495,20 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
       }
       return partition;
     }
+  }
+
+  private PartitionsByExprRequest buildPartitionsByExprRequest(String dbName, String tableName, byte[] expr,
+                                                               String defaultPartitionName, short maxParts)
+  {
+    PartitionsByExprRequest req = new PartitionsByExprRequest(
+            dbName, tableName, ByteBuffer.wrap(expr));
+
+    if (defaultPartitionName != null) {
+      req.setDefaultPartitionName(defaultPartitionName);
+    }
+    if (maxParts >= 0) {
+      req.setMaxParts(maxParts);
+    }
+    return req;
   }
 }

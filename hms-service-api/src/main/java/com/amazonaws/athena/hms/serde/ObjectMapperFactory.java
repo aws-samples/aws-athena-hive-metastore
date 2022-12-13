@@ -25,6 +25,7 @@ import com.amazonaws.athena.hms.MetadataResponse;
 import com.amazonaws.athena.hms.io.S3Helper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.databind.module.SimpleModule;
 
 public class ObjectMapperFactory
@@ -43,6 +44,7 @@ public class ObjectMapperFactory
     module.addDeserializer(MetadataResponse.class, new MetadataResponseDeserializer(helper, s3Helper));
     objectMapper.registerModule(module)
         .disable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
+        .disable(SerializationFeature.FAIL_ON_EMPTY_BEANS)
         .enable(DeserializationFeature.ACCEPT_SINGLE_VALUE_AS_ARRAY);
     return objectMapper;
   }

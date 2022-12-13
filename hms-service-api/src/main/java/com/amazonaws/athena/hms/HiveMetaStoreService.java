@@ -42,6 +42,10 @@ public interface HiveMetaStoreService
   //      throws TException;
   AlterTableResponse alterTable(AlterTableRequest request) throws Exception;
 
+  // HMS API:   boolean alterDatabase(String dbName, Database newDatabase)
+  //      throws TException;
+  AlterDatabaseResponse alterDatabase(AlterDatabaseRequest request) throws Exception;
+
   // HMS API:   void appendPartition(String dbName, String tableName,
   //                       List<String> partitionValues) throws TException;
   AppendPartitionResponse appendPartition(AppendPartitionRequest request) throws Exception;
@@ -119,4 +123,10 @@ public interface HiveMetaStoreService
 
   // HMS API: List Partition Objects with Pagination
   ListPartitionsResponse listPartitions(ListPartitionsRequest request) throws Exception;
+
+  // HMS API: Rename Partition
+  RenamePartitionResponse renamePartition(RenamePartitionRequest request) throws Exception;
+
+  // HMS API: Drop Partition
+  PartitionsByExprResponse listPartitionsByExpr(PartitionsByExprRequest request) throws Exception;
 }
