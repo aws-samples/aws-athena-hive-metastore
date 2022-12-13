@@ -19,11 +19,17 @@
  */
 package com.amazonaws.athena.hms;
 
+import java.util.List;
+import java.util.Map;
+
 public class RequestContext
 {
   private String id;
   private String principal;
   private String account;
+  private String principalArn;
+  private Map<String, String> principalTags;
+  private List<String> iamGroups;
 
   public RequestContext()
   {
@@ -34,6 +40,17 @@ public class RequestContext
     this.id = id;
     this.principal = principal;
     this.account = account;
+  }
+
+  public RequestContext(String id, String principal, String account, String principalArn,
+                        Map<String, String> principalTags, List<String> iamGroups)
+  {
+    this.id = id;
+    this.principal = principal;
+    this.account = account;
+    this.principalArn = principalArn;
+    this.principalTags = principalTags;
+    this.iamGroups = iamGroups;
   }
 
   public String getId()
@@ -66,6 +83,36 @@ public class RequestContext
     this.account = account;
   }
 
+  public String getPrincipalArn()
+  {
+    return principalArn;
+  }
+
+  public void setPrincipalArn(String principalArn)
+  {
+    this.principalArn = principalArn;
+  }
+
+  public Map<String, String> getPrincipalTags()
+  {
+    return principalTags;
+  }
+
+  public void setPrincipalTags(Map<String, String> principalTags)
+  {
+    this.principalTags = principalTags;
+  }
+
+  public List<String> getIamGroups()
+  {
+    return iamGroups;
+  }
+
+  public void setIamGroups(List<String> iamGroups)
+  {
+    this.iamGroups = iamGroups;
+  }
+
   @Override
   public String toString()
   {
@@ -73,6 +120,9 @@ public class RequestContext
         "id='" + id + '\'' +
         ", principal='" + principal + '\'' +
         ", account='" + account + '\'' +
+        ", principalArn='" + principalArn + '\'' +
+        ", principalTags='" + principalTags + '\'' +
+        ", iamGroups='" + iamGroups + '\'' +
         '}';
   }
 }

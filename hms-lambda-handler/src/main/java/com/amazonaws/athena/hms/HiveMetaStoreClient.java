@@ -59,7 +59,7 @@ public interface HiveMetaStoreClient
 
   boolean createDatabase(Database db) throws TException;
 
-  boolean dropDatabase(String dbName) throws TException;
+  boolean dropDatabase(String dbName, boolean deleteData, boolean cascade) throws TException;
 
   boolean createTable(Table table) throws TException;
 
@@ -86,6 +86,8 @@ public interface HiveMetaStoreClient
   List<Partition> getPartitionsByNames(String dbName, String tableName,
                                        List<String> names) throws TException;
 
+  boolean alterDatabase(String dbName, Database database) throws TException;
+
   boolean alterTable(String dbName, String tableName, Table newTable)
       throws TException;
 
@@ -97,4 +99,9 @@ public interface HiveMetaStoreClient
 
   void appendPartition(String dbName, String tableName,
                        List<String> partitionValues) throws TException;
+
+  void renamePartition(String dbName, String tableName, List<String> partVals, Partition newPart) throws TException;
+
+  boolean listPartitionsByExpr(String dbName, String tableName,
+                               byte[] expr, String defaultPartitionName, short maxParts, List<Partition> partitions) throws TException;
 }

@@ -11,36 +11,37 @@
     <module>hms-lambda-handler</module>
     <module>hms-lambda-func</module>
     <module>hms-lambda-layer</module>
+    <module>hms-lambda-rnp</module>
   </modules>
 
   <properties>
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    <javac.target>1.8</javac.target>
+    <javac.target>8</javac.target>
     <hive.version>2.3.9</hive.version>
     <hadoop.version>2.10.2</hadoop.version>
     <commons-cli.version>1.4</commons-cli.version>
   </properties>
 
-    <organization>
-        <name>Amazon Web Services</name>
-        <url>https://aws.amazon.com//</url>
-    </organization>
+  <organization>
+    <name>Amazon Web Services</name>
+    <url>https://aws.amazon.com//</url>
+  </organization>
 
-    <inceptionYear>2019</inceptionYear>
+  <inceptionYear>2019</inceptionYear>
 
-    <licenses>
-        <license>
-            <name>Apache License 2.0</name>
-            <url>http://www.apache.org/licenses/LICENSE-2.0</url>
-            <distribution>repo</distribution>
-        </license>
-    </licenses>
+  <licenses>
+    <license>
+      <name>Apache License 2.0</name>
+      <url>http://www.apache.org/licenses/LICENSE-2.0</url>
+      <distribution>repo</distribution>
+    </license>
+  </licenses>
 
-    <scm>
-        <connection>scm:git@github.com:awslabs/aws-athena-hive-metastore.git</connection>
-        <url>https://github.com/awslabs/aws-athena-hive-metastore</url>
-        <tag>HEAD</tag>
-    </scm>
+  <scm>
+    <connection>scm:git@github.com:awslabs/aws-athena-hive-metastore.git</connection>
+    <url>https://github.com/awslabs/aws-athena-hive-metastore</url>
+    <tag>HEAD</tag>
+  </scm>
 
   <dependencyManagement>
     <dependencies>
@@ -250,23 +251,23 @@
           <version>3.6.0</version>
         </plugin>
 
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-shade-plugin</artifactId>
-        <version>3.0.0</version>
-      </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-shade-plugin</artifactId>
+          <version>3.0.0</version>
+        </plugin>
 
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-assembly-plugin</artifactId>
-        <version>2.4.1</version>
-      </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-assembly-plugin</artifactId>
+          <version>2.4.1</version>
+        </plugin>
 
-      <plugin>
-        <groupId>org.apache.maven.plugins</groupId>
-        <artifactId>maven-dependency-plugin</artifactId>
-        <version>3.0.2</version>
-      </plugin>
+        <plugin>
+          <groupId>org.apache.maven.plugins</groupId>
+          <artifactId>maven-dependency-plugin</artifactId>
+          <version>3.0.2</version>
+        </plugin>
       </plugins>
     </pluginManagement>
 

@@ -1,0 +1,16 @@
+*.iml
+*.ipr
+*.iws
+target/
+pom.xml.versionsBackup
+/.idea/*
+!/.idea/runConfigurations
+.idea
+.run
+.DS_Store
+.classpath
+.settings
+.project
+*.class
+.checkstyle
+.mvn/timing.properties

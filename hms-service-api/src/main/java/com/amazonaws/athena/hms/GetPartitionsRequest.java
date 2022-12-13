@@ -23,6 +23,7 @@ public class GetPartitionsRequest extends ApiRequest
 {
   private String dbName;
   private String tableName;
+  private String partitionExpression;
   // default value "-1" means unlimited
   private short maxSize = -1;
 
@@ -46,6 +47,16 @@ public class GetPartitionsRequest extends ApiRequest
     this.tableName = tableName;
   }
 
+  public String getPartitionExpression()
+  {
+    return partitionExpression;
+  }
+
+  public void setPartitionExpression(String partitionExpression)
+  {
+    this.partitionExpression = partitionExpression;
+  }
+
   public short getMaxSize()
   {
     return maxSize;
@@ -65,6 +76,12 @@ public class GetPartitionsRequest extends ApiRequest
   public GetPartitionsRequest withTableName(String tableName)
   {
     this.tableName = tableName;
+    return this;
+  }
+
+  public GetPartitionsRequest withPartitionExpression(String partitionExpression)
+  {
+    this.partitionExpression = partitionExpression;
     return this;
   }
 

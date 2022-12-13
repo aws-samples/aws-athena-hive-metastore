@@ -39,7 +39,7 @@ public class TestApiNameHandlerProvider {
     HiveMetaStoreClient client = mock(HiveMetaStoreClient.class);
     Map<String, HandlerContext> map = new ApiNameHandlerProvider(new ApiHelper()).provide(conf, client);
     assertNotNull(map);
-    assertEquals(28, map.size());
+    assertEquals(31, map.size());
     HandlerContext tableExists = map.get("tableExists");
     assertNotNull(tableExists);
     assertTrue(tableExists.getRequestClass().isAssignableFrom(TableExistsRequest.class));
