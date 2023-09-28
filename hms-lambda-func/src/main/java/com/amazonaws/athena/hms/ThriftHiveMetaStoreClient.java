@@ -19,6 +19,7 @@
  */
 package com.amazonaws.athena.hms;
 
+import com.amazonaws.services.lambda.runtime.Context;
 import com.google.common.base.Joiner;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -63,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -73,6 +75,7 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
   private static final String CORE_SITE = "core-site.xml";
   private static final String HADOOP_RPC_PROTECTION = "hadoop.rpc.protection";
   private static final long SOCKET_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(600);
+  private static final AtomicInteger connectionCount = new AtomicInteger(0);
 
   private ThriftHiveMetastore.Iface client;
   private TTransport transport;
@@ -179,6 +182,7 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
     if (filter == null || filter.isEmpty()) {
       return new HashSet<>(client.get_all_databases());
     }
+    client.shutdown();
     return client.get_all_databases()
         .stream()
         .filter(n -> n.matches(filter))
@@ -515,5 +519,44 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
       req.setMaxParts(maxParts);
     }
     return req;
+  }
+
+  @Override
+  public void close(Context context)
+  {
+    try {
+      if (client != null) {
+        client.shutdown();
+        if ((transport == null) || !transport.isOpen()) {
+          final int newCount = connectionCount.decrementAndGet();
+          context.getLogger().log("Closed a connection to metastore, current connections: " +
+                  newCount);
+        }
+      }
+    }
+    catch (TException e) {
+      context.getLogger().log("Unable to shutdown metastore client. Will try closing transport directly." + e);
+    }
+    // Transport would have got closed via client.shutdown(), so we don't need this, but
+    // just in case, we make this call.
+    if ((transport != null) && transport.isOpen()) {
+      transport.close();
+      final int newCount = connectionCount.decrementAndGet();
+      context.getLogger().log("Closed a connection to metastore, current connections: " +
+              newCount);
+    }
+  }
+
+  public void refreshClient(HiveConf conf, Context context) throws TException, LoginException, IOException, URISyntaxException, InterruptedException
+  {
+    close(context);
+    ThriftHiveMetastore.Iface clientBeforeRefresh = client;
+    getClient(new URI(conf.getVar(HiveConf.ConfVars.METASTOREURIS)), conf);
+    if (client == clientBeforeRefresh) {
+      context.getLogger().log("Client refresh didn't work");
+    }
+    else {
+      context.getLogger().log("Client refresh worked");
+    }
   }
 }

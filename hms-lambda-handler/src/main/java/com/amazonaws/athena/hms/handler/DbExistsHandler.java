@@ -36,9 +36,10 @@ public class DbExistsHandler extends BaseHMSHandler<DbExistsRequest, DbExistsRes
   public DbExistsResponse handleRequest(DbExistsRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Checking if " + request.getDbName() + " exists");
       boolean exists = client.dbExists(request.getDbName());
       context.getLogger().log("DB exists: " + exists);
@@ -47,8 +48,7 @@ public class DbExistsHandler extends BaseHMSHandler<DbExistsRequest, DbExistsRes
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

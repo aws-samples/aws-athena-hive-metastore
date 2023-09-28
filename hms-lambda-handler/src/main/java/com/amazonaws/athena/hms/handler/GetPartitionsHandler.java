@@ -42,9 +42,10 @@ public class GetPartitionsHandler extends BaseHMSHandler<GetPartitionsRequest, G
   public GetPartitionsResponse handleRequest(GetPartitionsRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Fetching partitions for DB: " + request.getDbName() + ", table: " + request.getTableName());
       List<Partition> partitionList;
       if (request.getPartitionExpression() != null) {
@@ -67,8 +68,7 @@ public class GetPartitionsHandler extends BaseHMSHandler<GetPartitionsRequest, G
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

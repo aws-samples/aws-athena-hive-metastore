@@ -36,9 +36,10 @@ public class TableExistsHandler extends BaseHMSHandler<TableExistsRequest, Table
   public TableExistsResponse handleRequest(TableExistsRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Checking if " + request.getDbName() + "." + request.getTableName() + " exists");
       boolean exists = client.tableExists(request.getDbName(), request.getTableName());
       context.getLogger().log("Table exists: " + exists);
@@ -47,8 +48,7 @@ public class TableExistsHandler extends BaseHMSHandler<TableExistsRequest, Table
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

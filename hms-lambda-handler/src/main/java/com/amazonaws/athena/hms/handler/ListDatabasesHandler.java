@@ -73,9 +73,10 @@ public class ListDatabasesHandler extends BaseHMSHandler<ListDatabasesRequest, L
   public ListDatabasesResponse handleRequest(ListDatabasesRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       ListDatabasesResponse response = new ListDatabasesResponse();
       DatabasePaginator paginator = new DatabasePaginator(context, request, client);
       PaginatedResponse<Database> paginatedResponse = paginator.paginateByNames(request.getNextToken(), request.getMaxSize());
@@ -100,8 +101,7 @@ public class ListDatabasesHandler extends BaseHMSHandler<ListDatabasesRequest, L
       throw e;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

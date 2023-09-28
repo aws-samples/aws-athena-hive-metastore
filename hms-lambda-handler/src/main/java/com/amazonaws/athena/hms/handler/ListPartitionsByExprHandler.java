@@ -42,9 +42,10 @@ public class ListPartitionsByExprHandler extends BaseHMSHandler<PartitionsByExpr
     public PartitionsByExprResponse handleRequest(PartitionsByExprRequest request, Context context)
     {
         HiveMetaStoreConf conf = getConf();
+        HiveMetaStoreClient client = null;
         try {
             context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-            HiveMetaStoreClient client = getClient();
+            client = getClient();
 
             List<Partition> partitions = new ArrayList<Partition>();
             boolean hasUnKnownPartitions = client.listPartitionsByExpr(request.getDbName(), request.getTableName(), request.getExpr(),
@@ -69,8 +70,7 @@ public class ListPartitionsByExprHandler extends BaseHMSHandler<PartitionsByExpr
             return response;
         }
         catch (Exception e) {
-            context.getLogger().log("Exception: " + e.getMessage());
-            throw new RuntimeException(e);
+            throw handleException(context, e);
         }
     }
 }
