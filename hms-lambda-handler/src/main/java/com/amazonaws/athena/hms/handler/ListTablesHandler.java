@@ -74,9 +74,10 @@ public class ListTablesHandler extends BaseHMSHandler<ListTablesRequest, ListTab
   public ListTablesResponse handleRequest(ListTablesRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       ListTablesResponse response = new ListTablesResponse();
       TablePaginator paginator = new TablePaginator(context, request, client);
       PaginatedResponse<Table> paginatedResponse = paginator.paginateByNames(request.getNextToken(), request.getMaxSize());
@@ -96,13 +97,8 @@ public class ListTablesHandler extends BaseHMSHandler<ListTablesRequest, ListTab
       }
       return response;
     }
-    catch (RuntimeException e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw e;
-    }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

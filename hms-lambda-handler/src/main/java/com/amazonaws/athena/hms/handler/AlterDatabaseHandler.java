@@ -39,9 +39,10 @@ public class AlterDatabaseHandler extends BaseHMSHandler<AlterDatabaseRequest, A
     public AlterDatabaseResponse handleRequest(AlterDatabaseRequest alterDatabaseRequest, Context context)
     {
         HiveMetaStoreConf conf = getConf();
+        HiveMetaStoreClient client = null;
         try {
             context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-            HiveMetaStoreClient client = getClient();
+            client = getClient();
 
             context.getLogger().log("Altering database " + alterDatabaseRequest.getDbName());
             TDeserializer deserializer = new TDeserializer(getTProtocolFactory());
@@ -54,8 +55,7 @@ public class AlterDatabaseHandler extends BaseHMSHandler<AlterDatabaseRequest, A
             return alterDatabaseResponse;
         }
         catch (Exception e) {
-            context.getLogger().log("Exception: " + e.getMessage());
-            throw new RuntimeException(e);
+            throw handleException(context, e);
         }
     }
 }

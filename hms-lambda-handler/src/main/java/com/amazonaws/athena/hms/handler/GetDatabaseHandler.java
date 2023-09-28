@@ -40,9 +40,10 @@ public class GetDatabaseHandler extends BaseHMSHandler<GetDatabaseRequest, GetDa
   public GetDatabaseResponse handleRequest(GetDatabaseRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Fetching DB: " + request.getDbName());
       Database database = client.getDatabase(request.getDbName());
       context.getLogger().log("Fetched DB: " + database);
@@ -54,8 +55,7 @@ public class GetDatabaseHandler extends BaseHMSHandler<GetDatabaseRequest, GetDa
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

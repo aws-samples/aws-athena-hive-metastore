@@ -56,4 +56,19 @@ public abstract class BaseHMSHandler<REQUEST, RESPONSE> implements RequestHandle
 
   @Override
   public abstract RESPONSE handleRequest(REQUEST request, Context context);
+
+  public RuntimeException handleException(Context context, Exception e)
+  {
+    context.getLogger().log("Exception: " + e.getMessage());
+    context.getLogger().log("Refreshing client due to above exception");
+    if (client != null) {
+      try {
+        client.refreshClient(conf.toHiveConf(), context);
+      }
+      catch (Exception exception) {
+        context.getLogger().log("Exception during client refresh: " + exception.getMessage());
+      }
+    }
+    return new RuntimeException(e);
+  }
 }

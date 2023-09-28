@@ -42,9 +42,10 @@ public class CreatePartitionHandler extends BaseHMSHandler<CreatePartitionReques
   public CreatePartitionResponse handleRequest(CreatePartitionRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Creating table with desc: " + request.getTableDesc());
       TDeserializer deserializer = new TDeserializer(getTProtocolFactory());
       Table table = new Table();
@@ -59,8 +60,7 @@ public class CreatePartitionHandler extends BaseHMSHandler<CreatePartitionReques
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

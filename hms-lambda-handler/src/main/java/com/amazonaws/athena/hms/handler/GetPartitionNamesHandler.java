@@ -38,9 +38,10 @@ public class GetPartitionNamesHandler extends BaseHMSHandler<GetPartitionNamesRe
   public GetPartitionNamesResponse handleRequest(GetPartitionNamesRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Fetching partition Names for DB: " + request.getDbName() + ", table: " + request.getTableName());
       List<String> partitionNameList =
           client.getPartitionNames(request.getDbName(), request.getTableName(), request.getMaxSize());
@@ -52,8 +53,7 @@ public class GetPartitionNamesHandler extends BaseHMSHandler<GetPartitionNamesRe
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

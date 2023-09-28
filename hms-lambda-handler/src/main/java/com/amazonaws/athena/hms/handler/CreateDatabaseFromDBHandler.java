@@ -38,9 +38,10 @@ public class CreateDatabaseFromDBHandler extends BaseHMSHandler<CreateDatabaseFr
   public CreateDatabaseFromDBResponse handleRequest(CreateDatabaseFromDBRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Creating database " + request.getDbDesc());
       TDeserializer deserializer = new TDeserializer(getTProtocolFactory());
       Database database = new Database();
@@ -52,8 +53,7 @@ public class CreateDatabaseFromDBHandler extends BaseHMSHandler<CreateDatabaseFr
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

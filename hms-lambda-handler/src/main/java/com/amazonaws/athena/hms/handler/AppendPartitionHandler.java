@@ -36,17 +36,17 @@ public class AppendPartitionHandler extends BaseHMSHandler<AppendPartitionReques
   public AppendPartitionResponse handleRequest(AppendPartitionRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Appending partition for table " + request.getTableName() + " in DB " + request.getDbName());
       client.appendPartition(request.getDbName(), request.getTableName(), request.getPartitionValues());
       context.getLogger().log("Appended partition for table " + request.getTableName() + " in DB " + request.getDbName());
       return new AppendPartitionResponse();
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

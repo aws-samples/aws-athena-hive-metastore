@@ -41,9 +41,10 @@ public class AlterPartitionsHandler extends BaseHMSHandler<AlterPartitionsReques
   public AlterPartitionsResponse handleRequest(AlterPartitionsRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       boolean isEmpty = request.getPartitionDescs() == null || request.getPartitionDescs().isEmpty();
       context.getLogger().log("Altering partitions: " +
           (isEmpty ? 0 : request.getPartitionDescs().size()));
@@ -61,8 +62,7 @@ public class AlterPartitionsHandler extends BaseHMSHandler<AlterPartitionsReques
       return new AlterPartitionsResponse();
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

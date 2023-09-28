@@ -74,9 +74,10 @@ public class ListPartitionsHandler extends BaseHMSHandler<ListPartitionsRequest,
   public ListPartitionsResponse handleRequest(ListPartitionsRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       ListPartitionsResponse response = new ListPartitionsResponse();
       PartitionPaginator paginator = new PartitionPaginator(context, request, client);
       PaginatedResponse<Partition> paginatedResponse = paginator.paginateByNames(request.getNextToken(), request.getMaxSize());
@@ -96,13 +97,8 @@ public class ListPartitionsHandler extends BaseHMSHandler<ListPartitionsRequest,
       }
       return response;
     }
-    catch (RuntimeException e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw e;
-    }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

@@ -38,13 +38,14 @@ public class RenamePartitionHandler extends BaseHMSHandler<RenamePartitionReques
     public RenamePartitionResponse handleRequest(RenamePartitionRequest request, Context context)
     {
         HiveMetaStoreConf conf = getConf();
+        HiveMetaStoreClient client = null;
         try {
             if (request.getPartitionDesc() == null || request.getPartitionDesc().length() == 0) {
                 context.getLogger().log("Rename partition: New Partition definition is missing");
                 return new RenamePartitionResponse().setSuccessful(false);
             }
             context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-            HiveMetaStoreClient client = getClient();
+            client = getClient();
             TDeserializer deserializer = new TDeserializer(getTProtocolFactory());
             Partition partition = new Partition();
             deserializer.fromString(partition, request.getPartitionDesc());
@@ -54,8 +55,7 @@ public class RenamePartitionHandler extends BaseHMSHandler<RenamePartitionReques
             return new RenamePartitionResponse().setSuccessful(true);
         }
         catch (Exception e) {
-            context.getLogger().log("Exception: " + e.getMessage());
-            throw new RuntimeException(e);
+            throw handleException(context, e);
         }
     }
 }

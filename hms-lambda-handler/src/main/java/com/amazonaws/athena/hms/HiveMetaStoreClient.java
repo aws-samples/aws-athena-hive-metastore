@@ -19,12 +19,18 @@
  */
 package com.amazonaws.athena.hms;
 
+import com.amazonaws.services.lambda.runtime.Context;
+import org.apache.hadoop.hive.conf.HiveConf;
 import org.apache.hadoop.hive.metastore.api.Database;
 import org.apache.hadoop.hive.metastore.api.DropPartitionsResult;
 import org.apache.hadoop.hive.metastore.api.Partition;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.thrift.TException;
 
+import javax.security.auth.login.LoginException;
+
+import java.io.IOException;
+import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -106,4 +112,7 @@ public interface HiveMetaStoreClient
 
   boolean listPartitionsByExpr(String dbName, String tableName,
                                byte[] expr, String defaultPartitionName, short maxParts, List<Partition> partitions) throws TException;
+
+  void close(Context context);
+  void refreshClient(HiveConf hiveConf, Context context) throws TException, LoginException, IOException, URISyntaxException, InterruptedException;
 }
