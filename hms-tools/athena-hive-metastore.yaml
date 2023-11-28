@@ -53,7 +53,7 @@ Resources:
       Handler: "com.amazonaws.athena.hms.HiveMetaStoreLambdaFunc::handleRequest"
       CodeUri: "../hms-lambda-func/target/hms-lambda-func-1.0-withdep.jar"
       Description: "Allows Athena to call and execute queries with hive metastore."
-      Runtime: java8
+      Runtime: java8.al2
       Timeout: !Ref LambdaTimeout
       MemorySize: !Ref LambdaMemory
       Policies:

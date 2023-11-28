@@ -50,6 +50,7 @@ Resources:
       ContentUri: "../hms-lambda-layer/target/hms-lambda-layer-1.0-athena.zip"
       CompatibleRuntimes:
         - java8
+        - java8.al2
       LicenseInfo: 'Available under the Apache-2.0 license.'
       RetentionPolicy: Retain
 
@@ -64,7 +65,7 @@ Resources:
       Handler: "com.amazonaws.athena.hms.HiveMetaStoreLambdaFunc::handleRequest"
       CodeUri: "../hms-lambda-func/target/hms-lambda-func-1.0.jar"
       Description: "Allows Athena to call and execute queries with hive metastore."
-      Runtime: java8
+      Runtime: java8.al2
       Timeout: !Ref LambdaTimeout
       MemorySize: !Ref LambdaMemory
       Layers:
