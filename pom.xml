@@ -18,7 +18,7 @@
     <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     <javac.target>8</javac.target>
     <hive.version>2.3.9</hive.version>
-    <hadoop.version>2.10.2</hadoop.version>
+    <hadoop.version>3.2.3</hadoop.version>
     <commons-cli.version>1.4</commons-cli.version>
   </properties>
 
@@ -70,7 +70,12 @@
       <dependency>
         <groupId>com.amazonaws</groupId>
         <artifactId>aws-java-sdk-s3</artifactId>
-        <version>1.11.156</version>
+        <version>1.12.261</version>
+      </dependency>
+      <dependency>
+        <groupId>org.apache.htrace</groupId>
+        <artifactId>htrace-core4</artifactId>
+        <version>4.1.0-incubating</version>
       </dependency>
       <dependency>
         <groupId>org.apache.hive</groupId>
