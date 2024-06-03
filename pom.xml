@@ -20,6 +20,7 @@
     <hive.version>2.3.9</hive.version>
     <hadoop.version>3.2.4</hadoop.version>
     <commons-cli.version>1.4</commons-cli.version>
+    <aws-sdk.version>1.12.261</aws-sdk.version>
   </properties>
 
   <organization>
@@ -48,7 +49,7 @@
       <dependency>
         <groupId>com.amazonaws</groupId>
         <artifactId>aws-java-sdk-bom</artifactId>
-        <version>1.11.156</version>
+        <version>${aws-sdk.version}</version>
         <type>pom</type>
         <scope>import</scope>
       </dependency>
@@ -60,17 +61,17 @@
       <dependency>
         <groupId>com.amazonaws</groupId>
         <artifactId>aws-java-sdk-core</artifactId>
-        <version>1.11.156</version>
+        <version>${aws-sdk.version}</version>
       </dependency>
       <dependency>
         <groupId>com.amazonaws</groupId>
         <artifactId>aws-java-sdk-lambda</artifactId>
-        <version>1.11.156</version>
+        <version>${aws-sdk.version}</version>
       </dependency>
       <dependency>
         <groupId>com.amazonaws</groupId>
         <artifactId>aws-java-sdk-s3</artifactId>
-        <version>1.12.261</version>
+        <version>${aws-sdk.version}</version>
       </dependency>
       <dependency>
         <groupId>org.apache.htrace</groupId>
