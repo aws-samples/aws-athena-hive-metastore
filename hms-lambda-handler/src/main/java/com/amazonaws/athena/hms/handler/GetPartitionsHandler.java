@@ -42,12 +42,19 @@ public class GetPartitionsHandler extends BaseHMSHandler<GetPartitionsRequest, G
   public GetPartitionsResponse handleRequest(GetPartitionsRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Fetching partitions for DB: " + request.getDbName() + ", table: " + request.getTableName());
-      List<Partition> partitionList =
-          client.getPartitions(request.getDbName(), request.getTableName(), request.getMaxSize());
+      List<Partition> partitionList;
+      if (request.getPartitionExpression() != null) {
+        partitionList = client.getPartitionsByFilter(request.getDbName(), request.getTableName(),
+                request.getPartitionExpression(), request.getMaxSize());
+      }
+      else {
+        partitionList = client.getPartitions(request.getDbName(), request.getTableName(), request.getMaxSize());
+      }
       context.getLogger().log("Fetched partitions: " + (partitionList == null || partitionList.isEmpty() ? 0 : partitionList.size()));
       GetPartitionsResponse response = new GetPartitionsResponse();
       if (partitionList != null && !partitionList.isEmpty()) {
@@ -61,8 +68,7 @@ public class GetPartitionsHandler extends BaseHMSHandler<GetPartitionsRequest, G
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

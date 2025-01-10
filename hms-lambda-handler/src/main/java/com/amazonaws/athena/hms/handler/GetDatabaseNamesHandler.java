@@ -38,9 +38,10 @@ public class GetDatabaseNamesHandler extends BaseHMSHandler<GetDatabaseNamesRequ
   public GetDatabaseNamesResponse handleRequest(GetDatabaseNamesRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Fetching all database names with filter: " + request.getFilter());
       Set<String> databases = client.getDatabaseNames(request.getFilter());
       context.getLogger().log("Fetched database names: " + (databases == null || databases.isEmpty() ? 0 : databases.size()));
@@ -49,8 +50,7 @@ public class GetDatabaseNamesHandler extends BaseHMSHandler<GetDatabaseNamesRequ
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

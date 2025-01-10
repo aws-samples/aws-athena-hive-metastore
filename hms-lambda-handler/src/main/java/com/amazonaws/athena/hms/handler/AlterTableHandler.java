@@ -38,9 +38,10 @@ public class AlterTableHandler extends BaseHMSHandler<AlterTableRequest, AlterTa
   public AlterTableResponse handleRequest(AlterTableRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Altering table " + request.getTableName() + " in DB " + request.getDbName());
       TDeserializer deserializer = new TDeserializer(getTProtocolFactory());
       Table newTable = new Table();
@@ -52,8 +53,7 @@ public class AlterTableHandler extends BaseHMSHandler<AlterTableRequest, AlterTa
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

@@ -38,9 +38,10 @@ public class GetTableNamesHandler extends BaseHMSHandler<GetTableNamesRequest, G
   public GetTableNamesResponse handleRequest(GetTableNamesRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Fetching all table names for DB: " + request.getDbName() + " with filter: " + request.getFilter());
       Set<String> tables = client.getTableNames(request.getDbName(), request.getFilter());
       context.getLogger().log("Fetched table names: " + (tables == null || tables.isEmpty() ? 0 : tables.size()));
@@ -49,8 +50,7 @@ public class GetTableNamesHandler extends BaseHMSHandler<GetTableNamesRequest, G
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

@@ -36,19 +36,19 @@ public class DropDatabaseHandler extends BaseHMSHandler<DropDatabaseRequest, Dro
   public DropDatabaseResponse handleRequest(DropDatabaseRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Dropping DB " + request.getDbName());
-      boolean successful = client.dropDatabase(request.getDbName());
+      boolean successful = client.dropDatabase(request.getDbName(), request.isDeleteData(), request.isCascade());
       context.getLogger().log("Dropped DB: " + successful);
       DropDatabaseResponse response = new DropDatabaseResponse();
       response.setSuccessful(successful);
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

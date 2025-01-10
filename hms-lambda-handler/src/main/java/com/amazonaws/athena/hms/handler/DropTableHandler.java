@@ -36,9 +36,10 @@ public class DropTableHandler extends BaseHMSHandler<DropTableRequest, DropTable
   public DropTableResponse handleRequest(DropTableRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Dropping table " + request.getTableName() + " in DB " + request.getDbName());
       boolean successful = client.dropTable(request.getDbName(), request.getTableName());
       context.getLogger().log("Dropped table: " + successful);
@@ -47,8 +48,7 @@ public class DropTableHandler extends BaseHMSHandler<DropTableRequest, DropTable
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

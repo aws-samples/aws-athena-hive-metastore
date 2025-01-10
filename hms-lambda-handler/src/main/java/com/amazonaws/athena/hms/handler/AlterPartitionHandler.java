@@ -38,9 +38,10 @@ public class AlterPartitionHandler extends BaseHMSHandler<AlterPartitionRequest,
   public AlterPartitionResponse handleRequest(AlterPartitionRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Altering partition: " + request.getPartitionDesc());
       TDeserializer deserializer = new TDeserializer(getTProtocolFactory());
       Partition partition = new Partition();
@@ -50,8 +51,7 @@ public class AlterPartitionHandler extends BaseHMSHandler<AlterPartitionRequest,
       return new AlterPartitionResponse();
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

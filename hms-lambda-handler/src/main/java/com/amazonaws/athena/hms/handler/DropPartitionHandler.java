@@ -36,9 +36,10 @@ public class DropPartitionHandler extends BaseHMSHandler<DropPartitionRequest, D
   public DropPartitionResponse handleRequest(DropPartitionRequest request, Context context)
   {
     HiveMetaStoreConf conf = getConf();
+    HiveMetaStoreClient client = null;
     try {
       context.getLogger().log("Connecting to HMS: " + conf.getMetastoreUri());
-      HiveMetaStoreClient client = getClient();
+      client = getClient();
       context.getLogger().log("Dropping partition for table " + request.getTableName() + " in DB " + request.getDbName());
       boolean successful = client.dropPartition(request.getDbName(), request.getTableName(), request.getArguments());
       context.getLogger().log("Dropped partition for table " + request.getTableName() + " in DB " + request.getDbName());
@@ -47,8 +48,7 @@ public class DropPartitionHandler extends BaseHMSHandler<DropPartitionRequest, D
       return response;
     }
     catch (Exception e) {
-      context.getLogger().log("Exception: " + e.getMessage());
-      throw new RuntimeException(e);
+      throw handleException(context, e);
     }
   }
 }

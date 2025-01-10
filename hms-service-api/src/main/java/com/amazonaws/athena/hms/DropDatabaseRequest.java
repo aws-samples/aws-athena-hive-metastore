@@ -22,6 +22,8 @@ package com.amazonaws.athena.hms;
 public class DropDatabaseRequest extends ApiRequest
 {
   private String dbName;
+  private boolean deleteData;
+  private boolean cascade;
 
   public String getDbName()
   {
@@ -33,9 +35,41 @@ public class DropDatabaseRequest extends ApiRequest
     this.dbName = dbName;
   }
 
+  public boolean isDeleteData()
+  {
+    return deleteData;
+  }
+
+  public void setDeleteData(boolean deleteData)
+  {
+    this.deleteData = deleteData;
+  }
+
+  public boolean isCascade()
+  {
+    return cascade;
+  }
+
+  public void setCascade(boolean cascade)
+  {
+    this.cascade = cascade;
+  }
+
   public DropDatabaseRequest withDbName(String dbName)
   {
     this.dbName = dbName;
+    return this;
+  }
+
+  public DropDatabaseRequest withDeleteData(boolean deleteData)
+  {
+    this.deleteData = deleteData;
+    return this;
+  }
+
+  public DropDatabaseRequest withCascade(boolean cascade)
+  {
+    this.cascade = cascade;
     return this;
   }
 }

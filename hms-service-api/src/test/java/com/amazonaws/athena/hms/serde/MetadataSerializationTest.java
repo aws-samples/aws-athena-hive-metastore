@@ -36,6 +36,10 @@ import org.junit.Test;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
@@ -70,6 +74,44 @@ public class MetadataSerializationTest
     assertEquals("test", request.getContext().getId());
     assertEquals("arn:aws:iam::12345678:user/user1", request.getContext().getPrincipal());
     assertEquals("12345678", request.getContext().getAccount());
+    assertTrue(request.getApiRequest() instanceof AlterTableRequest);
+    AlterTableRequest resultRequest = (AlterTableRequest) request.getApiRequest();
+    assertEquals("", resultRequest.getTableDesc());
+    assertEquals("mytable", resultRequest.getTableName());
+    assertEquals("mydb", resultRequest.getDbName());
+  }
+
+  @Test
+  public void testMetadataRequestWithMoreIdentityInformation() throws IOException
+  {
+    ApiHelper helper = new ApiHelper();
+    ObjectMapper mapper = ObjectMapperFactory.create(helper, mock(S3Helper.class));
+    AlterTableRequest alterTableRequest = new AlterTableRequest();
+    alterTableRequest.setTableDesc("");
+    alterTableRequest.setTableName("mytable");
+    alterTableRequest.setDbName("mydb");
+    Map<String, String> tags = new HashMap<>();
+    tags.put("k1", "v1");
+    List<String> groups = new ArrayList<>();
+    groups.add("v1");
+    String principalName = "user/user1";
+    String arn = "arn:aws:iam::12345678:user/user1";
+
+    RequestContext context = new RequestContext("test", principalName, "12345678", arn, tags, groups);
+    MetadataRequest request =
+        new MetadataRequest(context, helper.getApiName(AlterTableRequest.class, AlterTableResponse.class), alterTableRequest);
+    String payload = mapper.writeValueAsString(request);
+    MetadataRequest result = mapper.readValue(payload, MetadataRequest.class);
+    assertNotNull(result);
+    assertEquals("alterTable", request.getApiName());
+    assertNotNull(request.getApiRequest());
+    assertNotNull(request.getContext());
+    assertEquals("test", request.getContext().getId());
+    assertEquals(principalName, request.getContext().getPrincipal());
+    assertEquals("12345678", request.getContext().getAccount());
+    assertEquals(arn, request.getContext().getPrincipalArn());
+    assertEquals(tags, request.getContext().getPrincipalTags());
+    assertEquals(groups, request.getContext().getIamGroups());
     assertTrue(request.getApiRequest() instanceof AlterTableRequest);
     AlterTableRequest resultRequest = (AlterTableRequest) request.getApiRequest();
     assertEquals("", resultRequest.getTableDesc());

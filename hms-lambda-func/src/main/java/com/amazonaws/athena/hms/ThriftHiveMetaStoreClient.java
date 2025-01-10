@@ -19,6 +19,7 @@
  */
 package com.amazonaws.athena.hms;
 
+import com.amazonaws.services.lambda.runtime.Context;
 import com.google.common.base.Joiner;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -28,6 +29,8 @@ import org.apache.hadoop.hive.metastore.api.DropPartitionsRequest;
 import org.apache.hadoop.hive.metastore.api.DropPartitionsResult;
 import org.apache.hadoop.hive.metastore.api.FieldSchema;
 import org.apache.hadoop.hive.metastore.api.Partition;
+import org.apache.hadoop.hive.metastore.api.PartitionsByExprRequest;
+import org.apache.hadoop.hive.metastore.api.PartitionsByExprResult;
 import org.apache.hadoop.hive.metastore.api.RequestPartsSpec;
 import org.apache.hadoop.hive.metastore.api.Table;
 import org.apache.hadoop.hive.metastore.api.ThriftHiveMetastore;
@@ -51,6 +54,7 @@ import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.nio.ByteBuffer;
 import java.security.PrivilegedExceptionAction;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -60,6 +64,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 
@@ -70,6 +75,7 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
   private static final String CORE_SITE = "core-site.xml";
   private static final String HADOOP_RPC_PROTECTION = "hadoop.rpc.protection";
   private static final long SOCKET_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(600);
+  private static final AtomicInteger connectionCount = new AtomicInteger(0);
 
   private ThriftHiveMetastore.Iface client;
   private TTransport transport;
@@ -176,6 +182,7 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
     if (filter == null || filter.isEmpty()) {
       return new HashSet<>(client.get_all_databases());
     }
+    client.shutdown();
     return client.get_all_databases()
         .stream()
         .filter(n -> n.matches(filter))
@@ -248,9 +255,9 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
     return true;
   }
 
-  public boolean dropDatabase(String dbName) throws TException
+  public boolean dropDatabase(String dbName, boolean deleteData, boolean cascade) throws TException
   {
-    client.drop_database(dbName, true, true);
+    client.drop_database(dbName, deleteData, cascade);
     return true;
   }
 
@@ -262,7 +269,7 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
 
   public boolean dropTable(String dbName, String tableName) throws TException
   {
-    client.drop_table(dbName, tableName, true);
+    client.drop_table(dbName, tableName, false);
     return true;
   }
 
@@ -300,12 +307,17 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
                                List<String> arguments)
       throws TException
   {
-    return client.drop_partition(dbName, tableName, arguments, true);
+    return client.drop_partition(dbName, tableName, arguments, false);
   }
 
   public List<Partition> getPartitions(String dbName, String tableName, short maxSize) throws TException
   {
     return client.get_partitions(dbName, tableName, maxSize);
+  }
+
+  public List<Partition> getPartitionsByFilter(String dbName, String tableName, String partitionFilter, short maxSize) throws TException
+  {
+    return client.get_partitions_by_filter(dbName, tableName, partitionFilter, maxSize);
   }
 
   public DropPartitionsResult dropPartitions(String dbName, String tableName,
@@ -338,6 +350,13 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
     return true;
   }
 
+  public boolean alterDatabase(String dbName, Database database)
+          throws TException
+  {
+    client.alter_database(dbName, database);
+    return true;
+  }
+
   public void alterPartition(String dbName, String tableName,
                              Partition partition) throws TException
   {
@@ -354,6 +373,26 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
                               List<String> partitionValues) throws TException
   {
     client.append_partition_with_environment_context(dbName, tableName, partitionValues, null);
+  }
+
+  public void renamePartition(final String dbName, final String tableName, final List<String> partVals, final Partition newPart) throws TException
+  {
+    client.rename_partition(dbName, tableName, partVals, newPart);
+  }
+
+  public boolean listPartitionsByExpr(String dbName, String tableName,
+                                      byte[] expr, String defaultPartitionName, short maxParts, List<Partition> partitions) throws TException
+  {
+    PartitionsByExprRequest req = buildPartitionsByExprRequest(dbName, tableName, expr, defaultPartitionName,
+            maxParts);
+
+    PartitionsByExprResult r = client.get_partitions_by_expr(req);
+    if (partitions == null) {
+      partitions = new ArrayList<>();
+    }
+
+    partitions.addAll(r.getPartitions());
+    return !r.isSetHasUnknownPartitions() || r.isHasUnknownPartitions();
   }
 
   private TTransport open(HiveConf conf, URI uri) throws
@@ -464,6 +503,60 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
         partition.getSd().setLocation(location);
       }
       return partition;
+    }
+  }
+
+  private PartitionsByExprRequest buildPartitionsByExprRequest(String dbName, String tableName, byte[] expr,
+                                                               String defaultPartitionName, short maxParts)
+  {
+    PartitionsByExprRequest req = new PartitionsByExprRequest(
+            dbName, tableName, ByteBuffer.wrap(expr));
+
+    if (defaultPartitionName != null) {
+      req.setDefaultPartitionName(defaultPartitionName);
+    }
+    if (maxParts >= 0) {
+      req.setMaxParts(maxParts);
+    }
+    return req;
+  }
+
+  @Override
+  public void close(Context context)
+  {
+    try {
+      if (client != null) {
+        client.shutdown();
+        if ((transport == null) || !transport.isOpen()) {
+          final int newCount = connectionCount.decrementAndGet();
+          context.getLogger().log("Closed a connection to metastore, current connections: " +
+                  newCount);
+        }
+      }
+    }
+    catch (TException e) {
+      context.getLogger().log("Unable to shutdown metastore client. Will try closing transport directly." + e);
+    }
+    // Transport would have got closed via client.shutdown(), so we don't need this, but
+    // just in case, we make this call.
+    if ((transport != null) && transport.isOpen()) {
+      transport.close();
+      final int newCount = connectionCount.decrementAndGet();
+      context.getLogger().log("Closed a connection to metastore, current connections: " +
+              newCount);
+    }
+  }
+
+  public void refreshClient(HiveConf conf, Context context) throws TException, LoginException, IOException, URISyntaxException, InterruptedException
+  {
+    close(context);
+    ThriftHiveMetastore.Iface clientBeforeRefresh = client;
+    getClient(new URI(conf.getVar(HiveConf.ConfVars.METASTOREURIS)), conf);
+    if (client == clientBeforeRefresh) {
+      context.getLogger().log("Client refresh didn't work");
+    }
+    else {
+      context.getLogger().log("Client refresh worked");
     }
   }
 }
