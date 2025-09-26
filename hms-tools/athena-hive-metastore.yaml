@@ -22,7 +22,6 @@ Parameters:
   SpillLocation:
     Description: "The S3 location where this function can spill metadata responses."
     Type: String
-    Default: "athena-hms-spill"
   LambdaTimeout:
     Description: "Maximum Lambda invocation runtime in seconds. (min 1 - 900 max)"
     Default: 300
