@@ -43,21 +43,32 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TCompactProtocol;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TFastFramedTransport;
+import org.apache.thrift.transport.TSSLTransportFactory;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
 
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocket;
+import javax.net.ssl.TrustManager;
+import javax.net.ssl.X509TrustManager;
 import javax.security.auth.login.LoginException;
 
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.MalformedURLException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.nio.ByteBuffer;
+import java.security.KeyStore;
 import java.security.PrivilegedExceptionAction;
+import java.security.cert.Certificate;
+import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -74,6 +85,9 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
   private static final String HIVE_SITE = "hive-site.xml";
   private static final String CORE_SITE = "core-site.xml";
   private static final String HADOOP_RPC_PROTECTION = "hadoop.rpc.protection";
+  private static final String METASTORE_USE_SSL = "hive.metastore.use.SSL";
+  public static final String ENV_SSL_TRUSTSTORE_PATH = "HMS_SSL_TRUSTSTORE_PATH";
+  public static final String ENV_SSL_TRUSTSTORE_PASSWORD = "HMS_SSL_TRUSTSTORE_PASSWORD";
   private static final long SOCKET_TIMEOUT_MS = TimeUnit.SECONDS.toMillis(600);
   private static final AtomicInteger connectionCount = new AtomicInteger(0);
 
@@ -398,12 +412,37 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
   private TTransport open(HiveConf conf, URI uri) throws
       TException, IOException, LoginException
   {
-    transport = new TSocket(uri.getHost(), uri.getPort(), (int) SOCKET_TIMEOUT_MS);
     boolean useSasl = conf.getBoolVar(HiveConf.ConfVars.METASTORE_USE_THRIFT_SASL);
+    boolean useSSL = conf.getBoolean(METASTORE_USE_SSL, false);
     boolean useFramedTransport = conf.getBoolVar(HiveConf.ConfVars.METASTORE_USE_THRIFT_FRAMED_TRANSPORT);
     boolean useCompactProtocol = conf.getBoolVar(HiveConf.ConfVars.METASTORE_USE_THRIFT_COMPACT_PROTOCOL);
     String tokenSig = conf.getVar(HiveConf.ConfVars.METASTORE_TOKEN_SIGNATURE);
 
+    if (useSSL) {
+      // Create SSL connection
+      return createSSLConnection(conf, uri, useSasl, useFramedTransport, useCompactProtocol, tokenSig);
+    }
+    else {
+      try {
+        // Attempt to create a plain socket connection first and set up the client
+        transport = new TSocket(uri.getHost(), uri.getPort(), (int) SOCKET_TIMEOUT_MS);
+        return setupClientConnection(conf, uri, transport, useSasl, useFramedTransport, useCompactProtocol, tokenSig, false);
+      }
+      catch (org.apache.thrift.transport.TTransportException transportException) {
+        // Caught TTransportException likely means an SSL connection is required
+        System.out.println("Caught exception while trying to create plain socket connection: " + transportException);
+        System.out.println("Attempting to create SSL socket connection");
+        if (transport != null && transport.isOpen()) {
+          transport.close();
+        }
+        return createSSLConnection(conf, uri, useSasl, useFramedTransport, useCompactProtocol, tokenSig);
+      }
+    }
+  }
+
+  private TTransport setupClientConnection(HiveConf conf, URI uri, TTransport transport, boolean useSasl, boolean useFramedTransport,
+                                           boolean useCompactProtocol, String tokenSig, boolean isSSL) throws TException, IOException, LoginException
+  {
     if (useSasl) {
       HadoopThriftAuthBridge.Client authBridge =
           ShimLoader.getHadoopThriftAuthBridge().createClient();
@@ -427,13 +466,79 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
         new TCompactProtocol(transport) :
         new TBinaryProtocol(transport);
     client = new ThriftHiveMetastore.Client(protocol);
-    transport.open();
+    if (!transport.isOpen()) {
+      transport.open();
+    }
     if (!useSasl && conf.getBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI)) {
       UserGroupInformation ugi = Utils.getUGI();
       client.set_ugi(ugi.getUserName(), Arrays.asList(ugi.getGroupNames()));
     }
 
     return transport;
+  }
+
+  private TTransport createSSLConnection(HiveConf conf, URI uri, boolean useSasl, boolean useFramedTransport, boolean useCompactProtocol,
+                                         String tokenSig) throws TException, IOException, LoginException
+  {
+    try {
+      String trustStorePath = System.getenv(ENV_SSL_TRUSTSTORE_PATH);
+      String trustStorePassword = System.getenv(ENV_SSL_TRUSTSTORE_PASSWORD);
+      if (trustStorePath == null || trustStorePath.isEmpty()) {
+        String defaultTrustStorePath = conf.get("hive.metastore.ssl.truststore.path", "").trim();
+        trustStorePassword = conf.get("hive.metastore.ssl.truststore.password", "");
+        trustStorePath = "/tmp/updated-cacerts";
+
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(null, new TrustManager[]{new X509TrustManager()
+        {
+          public void checkClientTrusted(X509Certificate[] chain, String authType) {}
+          public void checkServerTrusted(X509Certificate[] chain, String authType) {}
+          public X509Certificate[] getAcceptedIssuers()
+          {
+            return new X509Certificate[0];
+          }
+        }}, null);
+
+        // Connect to the EMR cluster and retrieve the certificate to add to truststore
+        System.out.println("Adding EMR certificate to truststore, connecting to EMR host: " + uri.getHost() + ":" + uri.getPort());
+        SSLSocket socket = (SSLSocket) sslContext.getSocketFactory().createSocket(uri.getHost(), uri.getPort());
+        socket.startHandshake();
+        Certificate[] certs = socket.getSession().getPeerCertificates();
+        socket.close();
+
+        System.out.println("Retrieved " + certs.length + " certificates from EMR, validating it.");
+
+        X509Certificate x509Cert = (X509Certificate) certs[0];
+        if (x509Cert.getNotAfter().before(new Date())) {
+          System.out.println("Certificate expired");
+          throw new SecurityException("Certificate is expired");
+        }
+
+        KeyStore truststore = KeyStore.getInstance("JKS");
+        truststore.load(new FileInputStream(defaultTrustStorePath), trustStorePassword.toCharArray());
+
+        System.out.println("Adding EMR certificate to default truststore");
+        truststore.setCertificateEntry("emr-" + uri.getHost(), certs[0]);
+        truststore.store(new FileOutputStream(trustStorePath), trustStorePassword.toCharArray());
+
+        System.setProperty("javax.net.ssl.trustStore", trustStorePath);
+      }
+      if (trustStorePath.isEmpty()) {
+        throw new IllegalArgumentException("SSL truststore path not configured for SSL connection");
+      }
+
+      TSSLTransportFactory.TSSLTransportParameters params = new TSSLTransportFactory.TSSLTransportParameters();
+      params.setTrustStore(trustStorePath, trustStorePassword);
+      params.requireClientAuth(false);
+      transport = TSSLTransportFactory.getClientSocket(uri.getHost(), uri.getPort(), (int) SOCKET_TIMEOUT_MS, params);
+      System.out.println("SSL connection established successfully!");
+
+      // Set up the client after successful SSL connection
+      return setupClientConnection(conf, uri, transport, useSasl, useFramedTransport, useCompactProtocol, tokenSig, true);
+    }
+    catch (Exception sslException) {
+      throw new TException("Failed to create SSL connection: " + sslException.getMessage(), sslException);
+    }
   }
 
   static class PartitionBuilder
