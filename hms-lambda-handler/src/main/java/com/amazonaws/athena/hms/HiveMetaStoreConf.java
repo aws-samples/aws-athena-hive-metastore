@@ -248,10 +248,17 @@ public class HiveMetaStoreConf
     if (useSSL != null && !useSSL.isEmpty()) {
       this.useSsl = Boolean.parseBoolean(useSSL);
       conf.setBoolean("hive.metastore.use.SSL", this.useSsl);
-    }
-    conf.set("hive.metastore.ssl.truststore.path", this.sslTruststorePath);
-    conf.set("hive.metastore.ssl.truststore.password", this.sslTruststorePassword);
+      // Add truststore configurations from environment variables
+      String trustStorePath = System.getenv("HMS_SSL_TRUSTSTORE_PATH");
+      if (trustStorePath != null && !trustStorePath.isEmpty()) {
+        conf.set("hive.metastore.ssl.truststore.path", trustStorePath);
+      }
 
+      String trustStorePassword = System.getenv("HMS_SSL_TRUSTSTORE_PASSWORD");
+      if (trustStorePassword != null && !trustStorePassword.isEmpty()) {
+        conf.set("hive.metastore.ssl.truststore.password", trustStorePassword);
+      }
+    }
     return conf;
   }
 

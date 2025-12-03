@@ -56,7 +56,7 @@ public class ThriftHiveMetaStoreClientFactoryTest {
     try {
       HiveMetaStoreClient client = factory.getHiveMetaStoreClient();
     } catch (RuntimeException e) {
-      assertEquals("Failed to create HiveMetaStoreClient", e.getMessage());
+      assertTrue(e.getMessage().contains("Failed to setup client"));
     }
   }
 
