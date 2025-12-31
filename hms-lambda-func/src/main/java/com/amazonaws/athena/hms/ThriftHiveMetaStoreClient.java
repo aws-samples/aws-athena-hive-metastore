@@ -20,6 +20,10 @@
 package com.amazonaws.athena.hms;
 
 import com.amazonaws.services.lambda.runtime.Context;
+import com.amazonaws.services.s3.AmazonS3;
+import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.google.common.base.Joiner;
 import org.apache.hadoop.conf.Configuration;
 import org.apache.hadoop.hive.conf.HiveConf;
@@ -43,8 +47,10 @@ import org.apache.thrift.protocol.TBinaryProtocol;
 import org.apache.thrift.protocol.TCompactProtocol;
 import org.apache.thrift.protocol.TProtocol;
 import org.apache.thrift.transport.TFastFramedTransport;
+import org.apache.thrift.transport.TSSLTransportFactory;
 import org.apache.thrift.transport.TSocket;
 import org.apache.thrift.transport.TTransport;
+import org.apache.thrift.transport.TTransportException;
 
 import javax.security.auth.login.LoginException;
 
@@ -398,42 +404,215 @@ public class ThriftHiveMetaStoreClient implements HiveMetaStoreClient
   private TTransport open(HiveConf conf, URI uri) throws
       TException, IOException, LoginException
   {
-    transport = new TSocket(uri.getHost(), uri.getPort(), (int) SOCKET_TIMEOUT_MS);
     boolean useSasl = conf.getBoolVar(HiveConf.ConfVars.METASTORE_USE_THRIFT_SASL);
+    boolean useSSL = conf.getBoolean("hive.metastore.use.SSL", false);
     boolean useFramedTransport = conf.getBoolVar(HiveConf.ConfVars.METASTORE_USE_THRIFT_FRAMED_TRANSPORT);
     boolean useCompactProtocol = conf.getBoolVar(HiveConf.ConfVars.METASTORE_USE_THRIFT_COMPACT_PROTOCOL);
     String tokenSig = conf.getVar(HiveConf.ConfVars.METASTORE_TOKEN_SIGNATURE);
+    String trustStorePath = conf.get("hive.metastore.ssl.truststore.path");
+    String trustStorePassword = conf.get("hive.metastore.ssl.truststore.password");
 
-    if (useSasl) {
-      HadoopThriftAuthBridge.Client authBridge =
-          ShimLoader.getHadoopThriftAuthBridge().createClient();
-      // tokenSig could be null
-      String tokenStrForm = Utils.getTokenStrForm(tokenSig);
-      if (tokenStrForm != null) {
-        // authenticate using delegation tokens via the "DIGEST" mechanism
-        transport = authBridge.createClientTransport(null, uri.getHost(),
-            "DIGEST", tokenStrForm, transport, MetaStoreUtils.getMetaStoreSaslProperties(conf));
+    if (useSSL) {
+      if (trustStorePath != null && !trustStorePath.isEmpty() &&
+              trustStorePassword != null && !trustStorePassword.isEmpty()) {
+        return createSSLConnection(conf, uri, useSasl, useFramedTransport, useCompactProtocol, tokenSig, trustStorePath, trustStorePassword);
       }
       else {
-        String principalConfig = conf.getVar(HiveConf.ConfVars.METASTORE_KERBEROS_PRINCIPAL);
-        transport = authBridge.createClientTransport(
-            principalConfig, uri.getHost(), "KERBEROS", null,
-            transport, MetaStoreUtils.getMetaStoreSaslProperties(conf));
+        throw new IllegalArgumentException(
+                "SSL is enabled but truststore configuration is missing.\n" +
+                        "Please set environment variables:\n" +
+                        "  - HMS_SSL_TRUSTSTORE_PATH (path to truststore file)\n" +
+                        "  - HMS_SSL_TRUSTSTORE_PASSWORD (truststore password)\n" +
+                        "Valid path formats:\n" +
+                        "  - /tmp/truststore.jks (local file in Lambda)\n" +
+                        "  - s3://bucket/path/truststore.jks (will be downloaded from S3)"
+        );
       }
     }
+    else {
+      // Create a plain socket connection
+      TTransport transport = new TSocket(uri.getHost(), uri.getPort(), (int) SOCKET_TIMEOUT_MS);
+      return setupClientConnection(conf, uri, transport, useSasl, useFramedTransport, useCompactProtocol, tokenSig, false);
+    }
+  }
 
-    transport = useFramedTransport ? new TFastFramedTransport(transport) : transport;
-    TProtocol protocol = useCompactProtocol ?
-        new TCompactProtocol(transport) :
-        new TBinaryProtocol(transport);
-    client = new ThriftHiveMetastore.Client(protocol);
-    transport.open();
-    if (!useSasl && conf.getBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI)) {
-      UserGroupInformation ugi = Utils.getUGI();
-      client.set_ugi(ugi.getUserName(), Arrays.asList(ugi.getGroupNames()));
+  private TTransport setupClientConnection(HiveConf conf, URI uri, TTransport transport, boolean useSasl, boolean useFramedTransport,
+                                           boolean useCompactProtocol, String tokenSig, boolean isSSL) throws TException, IOException, LoginException
+  {
+    try {
+      if (useSasl) {
+        HadoopThriftAuthBridge.Client authBridge =
+                ShimLoader.getHadoopThriftAuthBridge().createClient();
+        // tokenSig could be null
+        String tokenStrForm = Utils.getTokenStrForm(tokenSig);
+        if (tokenStrForm != null) {
+          // authenticate using delegation tokens via the "DIGEST" mechanism
+          transport = authBridge.createClientTransport(null, uri.getHost(),
+                  "DIGEST", tokenStrForm, transport, MetaStoreUtils.getMetaStoreSaslProperties(conf));
+        }
+        else {
+          String principalConfig = conf.getVar(HiveConf.ConfVars.METASTORE_KERBEROS_PRINCIPAL);
+          transport = authBridge.createClientTransport(
+                  principalConfig, uri.getHost(), "KERBEROS", null,
+                  transport, MetaStoreUtils.getMetaStoreSaslProperties(conf));
+        }
+      }
+
+      transport = useFramedTransport ? new TFastFramedTransport(transport) : transport;
+      TProtocol protocol = useCompactProtocol ?
+              new TCompactProtocol(transport) :
+              new TBinaryProtocol(transport);
+      client = new ThriftHiveMetastore.Client(protocol);
+      if (!transport.isOpen()) {
+        transport.open();
+      }
+      if (!useSasl && conf.getBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI)) {
+        UserGroupInformation ugi = Utils.getUGI();
+        client.set_ugi(ugi.getUserName(), Arrays.asList(ugi.getGroupNames()));
+      }
+
+      return transport;
+    }
+    catch (TTransportException te) {
+      throw new RuntimeException("Failed to setup client due to SSL configuration mismatch with server.", te);
+    }
+    catch (Exception e) {
+      throw new RuntimeException("Failed to setup client", e);
+    }
+  }
+
+  private TTransport createSSLConnection(HiveConf conf, URI uri, boolean useSasl, boolean useFramedTransport, boolean useCompactProtocol,
+                                         String tokenSig, String trustStorePath, String trustStorePassword) throws TException, IOException, LoginException
+  {
+    try {
+      String resolvedPath = resolveTrustStorePath(trustStorePath, trustStorePassword);
+      File truststoreFile = new File(resolvedPath);
+      if (!truststoreFile.exists()) {
+        throw new IOException("Truststore file not found at: " + resolvedPath);
+      }
+      if (!truststoreFile.canRead()) {
+        throw new IOException("Cannot read truststore file at: " + resolvedPath);
+      }
+
+      System.out.println("Using truststore at: " + resolvedPath);
+
+      // Create SSL connection with the truststore
+      TSSLTransportFactory.TSSLTransportParameters params = new TSSLTransportFactory.TSSLTransportParameters();
+      params.setTrustStore(resolvedPath, trustStorePassword);
+      params.requireClientAuth(false);
+
+      transport = TSSLTransportFactory.getClientSocket(uri.getHost(), uri.getPort(), (int) SOCKET_TIMEOUT_MS, params);
+
+      System.out.println("SSL connection established successfully");
+    }
+    catch (Exception e) {
+      throw new TException("Failed to create SSL connection: " + e.getMessage(), e);
     }
 
-    return transport;
+    return setupClientConnection(conf, uri, transport, useSasl, useFramedTransport, useCompactProtocol, tokenSig, true);
+  }
+
+  private String resolveTrustStorePath(String trustStorePath, String trustStorePassword)
+          throws IOException
+  {
+    if (trustStorePath == null || trustStorePath.isEmpty()) {
+      throw new IllegalArgumentException("Truststore path cannot be empty");
+    }
+
+    // Handle S3 paths - download to /tmp
+    if (trustStorePath.startsWith("s3://")) {
+      return downloadTruststoreFromS3(trustStorePath);
+    }
+
+    // Handle /tmp paths (Lambda's writable directory)
+    if (trustStorePath.startsWith("/tmp/")) {
+      return trustStorePath;
+    }
+
+    // Handle /opt paths (Lambda layers - read-only)
+    if (trustStorePath.startsWith("/opt/")) {
+      return trustStorePath;
+    }
+
+    File file = new File(trustStorePath);
+    if (file.isAbsolute() && file.exists()) {
+      return trustStorePath;
+    }
+
+    throw new IllegalArgumentException(
+            "Invalid truststore path: " + trustStorePath + "\n" +
+                    "Lambda can only access:\n" +
+                    "  - /tmp/truststore.jks (local file in Lambda /tmp directory)\n" +
+                    "  - /opt/truststore.jks (file from Lambda layer)\n" +
+                    "  - s3://bucket/path/truststore.jks (will be downloaded to /tmp)\n" +
+                    "Current path does not match any valid format."
+    );
+  }
+
+  private String downloadTruststoreFromS3(String s3Path) throws IOException
+  {
+    System.out.println("Downloading truststore from S3: " + s3Path);
+    if (!s3Path.startsWith("s3://")) {
+      throw new IllegalArgumentException("Invalid S3 path format: " + s3Path);
+    }
+
+    String pathWithoutProtocol = s3Path.substring(5);
+    int firstSlash = pathWithoutProtocol.indexOf('/');
+
+    if (firstSlash == -1) {
+      throw new IllegalArgumentException(
+              "Invalid S3 path format: " + s3Path + "\n" +
+                      "Expected format: s3://bucket-name/path/to/truststore.jks"
+      );
+    }
+
+    String bucket = pathWithoutProtocol.substring(0, firstSlash);
+    String key = pathWithoutProtocol.substring(firstSlash + 1);
+
+    if (bucket.isEmpty() || key.isEmpty()) {
+      throw new IllegalArgumentException("S3 bucket or key cannot be empty in path: " + s3Path);
+    }
+
+    String fileName = key.substring(key.lastIndexOf('/') + 1);
+    String localPath = "/tmp/" + fileName;
+
+    try {
+      AmazonS3 s3Client = AmazonS3ClientBuilder.standard().build();
+      File localFile = new File(localPath);
+
+      System.out.println("Downloading from bucket: " + bucket + ", key: " + key);
+      s3Client.getObject(new GetObjectRequest(bucket, key), localFile);
+
+      System.out.println("Successfully downloaded truststore to: " + localPath);
+      return localPath;
+    }
+    catch (AmazonS3Exception e) {
+      if (e.getStatusCode() == 403) {
+        throw new IOException(
+                "Access denied downloading truststore from S3: " + s3Path + "\n" +
+                        "Ensure Lambda execution role has s3:GetObject permission for this object.\n" +
+                        "Required IAM policy:\n" +
+                        "{\n" +
+                        "  \"Effect\": \"Allow\",\n" +
+                        "  \"Action\": \"s3:GetObject\",\n" +
+                        "  \"Resource\": \"arn:aws:s3:::" + bucket + "/" + key + "\"\n" +
+                        "}", e
+        );
+      }
+      else if (e.getStatusCode() == 404) {
+        throw new IOException(
+                "Truststore not found in S3: " + s3Path + "\n" +
+                        "Please verify the bucket and key exist.", e
+        );
+      }
+      throw new IOException("Failed to download truststore from S3: " + e.getMessage(), e);
+    }
+    catch (Exception e) {
+      throw new IOException(
+              "Unexpected error downloading truststore from S3: " + s3Path + "\n" +
+                      "Error: " + e.getMessage(), e
+      );
+    }
   }
 
   static class PartitionBuilder

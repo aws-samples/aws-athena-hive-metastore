@@ -34,9 +34,13 @@ public class HiveMetaStoreConf
   public static final long DEFAULT_HMS_RESPONSE_SPILL_THRESHOLD = 4 * 1024 * 1024; // 4MB
   public static final String ENV_HMS_URIS = "HMS_URIS";
   public static final String ENV_SPILL_LOCATION = "SPILL_LOCATION";
+  public static final String ENV_USE_SSL = "HMS_USE_SSL";
 
   // Hive configuration: "hive.metastore.sasl.enabled"
   private boolean useSasl = false;
+
+  // Hive configuration: "hive.metastore.ssl.enabled"
+  private boolean useSsl = false;
 
   // Hive configuration: "hive.metastore.thrift.framed.transport.enabled"
   private boolean useFramedTransport;
@@ -69,6 +73,12 @@ public class HiveMetaStoreConf
 
   // the handler name prefix
   private String handlerNamePrefix;
+
+  // SSL truststore path
+  private String sslTruststorePath;
+
+  // SSL truststore password
+  private String sslTruststorePassword;
 
   public boolean isKerberosEnabled()
   {
@@ -190,6 +200,26 @@ public class HiveMetaStoreConf
     this.handlerNamePrefix = handlerNamePrefix;
   }
 
+  public String getSslTruststorePath()
+  {
+    return sslTruststorePath;
+  }
+
+  public void setSslTruststorePath(String sslTruststorePath)
+  {
+    this.sslTruststorePath = sslTruststorePath;
+  }
+
+  public String getSslTruststorePassword()
+  {
+    return sslTruststorePassword;
+  }
+
+  public void setSslTruststorePassword(String sslTruststorePassword)
+  {
+    this.sslTruststorePassword = sslTruststorePassword;
+  }
+
   /*
    * convert this configuration class to an HiveConf object
    *
@@ -213,6 +243,22 @@ public class HiveMetaStoreConf
     }
     conf.setBoolVar(HiveConf.ConfVars.METASTORE_EXECUTE_SET_UGI, metastoreSetUgi);
 
+    // Add SSL configurations from environment variables
+    String useSSL = System.getenv(ENV_USE_SSL);
+    if (useSSL != null && !useSSL.isEmpty()) {
+      this.useSsl = Boolean.parseBoolean(useSSL);
+      conf.setBoolean("hive.metastore.use.SSL", this.useSsl);
+      // Add truststore configurations from environment variables
+      String trustStorePath = System.getenv("HMS_SSL_TRUSTSTORE_PATH");
+      if (trustStorePath != null && !trustStorePath.isEmpty()) {
+        conf.set("hive.metastore.ssl.truststore.path", trustStorePath);
+      }
+
+      String trustStorePassword = System.getenv("HMS_SSL_TRUSTSTORE_PASSWORD");
+      if (trustStorePassword != null && !trustStorePassword.isEmpty()) {
+        conf.set("hive.metastore.ssl.truststore.password", trustStorePassword);
+      }
+    }
     return conf;
   }
 
@@ -238,6 +284,8 @@ public class HiveMetaStoreConf
     conf.setResponseSpillLocation(hmsConf.getProperty(HMS_RESPONSE_SPILL_LOCATION));
     conf.setResponseSpillThreshold(hmsConf.getLong(HMS_RESPONSE_SPILL_THRESHOLD, DEFAULT_HMS_RESPONSE_SPILL_THRESHOLD));
     conf.setHandlerNamePrefix(hmsConf.getString(HMS_HANDLER_NAME_PREFIX, DEFAULT_HMS_HANDLER_NAME_PREFIX));
+    conf.setSslTruststorePath(hmsConf.getProperty("hive.metastore.ssl.truststore.path"));
+    conf.setSslTruststorePassword(hmsConf.getProperty("hive.metastore.ssl.truststore.password"));
     return conf;
   }
 
@@ -269,6 +317,7 @@ public class HiveMetaStoreConf
   {
     return "{" +
         "useSasl: " + useSasl +
+        ", useSSL: " + useSsl +
         ", useFramedTransport: " + useFramedTransport +
         ", useCompactProtocol: " + useCompactProtocol +
         ", tokenSig: '" + tokenSig + '\'' +
